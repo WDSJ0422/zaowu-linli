@@ -4,7 +4,7 @@ export async function onRequestGet({ request, env }) {
   const { user, error } = await requireUser(request, env);
   if (error) return error;
   const { results } = await env.DB.prepare(
-    "SELECT i.*,p.name AS printer_name,p.phone AS printer_phone,p.wechat AS printer_wechat FROM inquiries i LEFT JOIN printers p ON p.id=i.printer_id WHERE i.buyer_id=? OR p.owner_id=? ORDER BY i.created_at DESC"
+    "SELECT i.*,p.owner_id AS printer_owner_id,p.name AS printer_name,p.phone AS printer_phone,p.wechat AS printer_wechat FROM inquiries i LEFT JOIN printers p ON p.id=i.printer_id WHERE i.buyer_id=? OR p.owner_id=? ORDER BY i.created_at DESC"
   )
     .bind(user.id, user.id)
     .all();
@@ -53,3 +53,23 @@ export async function onRequestPost({ request, env }) {
   return json({ inquiry_id: inquiryId, status: "created" }, 201);
 }
 
+export async function onRequestPatch({ request, env }) {
+  const { user, error } = await requireUser(request, env);
+  if (error) return error;
+  const body = await readJson(request);
+  const inquiryId = String(body.id || "").trim();
+  const status = String(body.status || "").trim();
+  const allowed = ["待商家报价", "已报价，待买家确认", "已确认制作", "制作完成，可联系发货", "已完成"];
+  if (!inquiryId || !allowed.includes(status)) return json({ error: "状态更新参数不正确" }, 422);
+
+  const row = await env.DB.prepare(
+    "SELECT i.id,p.owner_id FROM inquiries i JOIN printers p ON p.id=i.printer_id WHERE i.id=?"
+  )
+    .bind(inquiryId)
+    .first();
+  if (!row) return json({ error: "询价单不存在" }, 404);
+  if (row.owner_id !== user.id) return json({ error: "只有接单打印机主可以更新制作状态" }, 403);
+
+  await env.DB.prepare("UPDATE inquiries SET status=? WHERE id=?").bind(status, inquiryId).run();
+  return json({ id: inquiryId, status });
+}
