@@ -1,0 +1,9 @@
+name = "zaowu-linli"
+compatibility_date = "2026-07-05"
+pages_build_output_dir = "site"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zaowu-linli-db"
+database_id = "替换成 Cloudflare D1 database_id"
+
