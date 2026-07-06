@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>造物邻里 · 平台管理员后台</title>
+  <style>
+    :root{--ink:#1d2838;--muted:#687484;--line:#eadfd3;--bg:#f7f3ed;--card:#fff;--orange:#ef623e;--green:#12a56f;--blue:#2478ff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+    .top{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+    .wrap{max-width:1180px;margin:0 auto;padding:22px}.top .wrap{display:flex;justify-content:space-between;align-items:center;gap:14px}
+    h1{margin:0;font-size:24px;letter-spacing:-.04em}.muted{color:var(--muted)}button,input{font:inherit}button{border:0;border-radius:12px;padding:11px 15px;font-weight:800;cursor:pointer}.btn{background:var(--ink);color:#fff}.btn.orange{background:var(--orange)}.btn.light{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.danger{background:#fff1ee;color:#c4331f}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .login{max-width:520px;margin:80px auto;background:#fff;border:1px solid var(--line);border-radius:26px;padding:28px;box-shadow:0 24px 70px #1d283814}.field{display:grid;gap:8px;margin:16px 0}.field label{font-weight:800}.field input{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px 14px;background:#fff}
+    .notice{background:#fff8e8;border:1px solid #f0d9a8;border-radius:14px;padding:13px;color:#77542b;font-size:14px}.error{background:#fff0ee;color:#b83420;border:1px solid #ffd1ca;border-radius:14px;padding:12px;margin-top:12px}.hidden{display:none!important}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0}.stat{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px}.stat b{display:block;font-size:30px}.stat span{font-size:13px;color:var(--muted)}
+    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:18px 0}.toolbar input{min-width:280px;flex:1;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button.active{background:var(--orange);color:#fff}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:860px}th,td{text-align:left;border-bottom:1px solid #f0e7dd;padding:13px;font-size:14px;vertical-align:top}th{background:#fbf8f3;color:#536071;font-size:13px;position:sticky;top:76px;z-index:1}.tag{display:inline-flex;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900;background:#eef4ff;color:#245ac4}.tag.printer{background:#e9f9f1;color:#08794f}.tag.buyer{background:#fff1ea;color:#c94f2f}.row-actions{display:flex;gap:8px;white-space:nowrap}.empty{padding:46px;text-align:center;color:var(--muted)}
+    .foot{margin-top:20px;font-size:13px;color:var(--muted);line-height:1.8}.danger-zone{color:#b83420;font-weight:800}
+    @media(max-width:760px){.wrap{padding:16px}.top .wrap{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr 1fr}.toolbar input{min-width:100%}}
+  </style>
+</head>
+<body>
+  <header class="top"><div class="wrap"><div><h1>造物邻里 · 管理员后台</h1><div class="muted">查看注册用户、打印机主、询价记录，并进行基础管理。</div></div><div id="topActions"></div></div></header>
+
+  <main class="wrap">
+    <section id="loginBox" class="login">
+      <h2>管理员登录</h2>
+      <p class="muted">请输入你在 Cloudflare 环境变量里设置的 <b>ADMIN_TOKEN</b>。这个密钥只保存在当前浏览器。</p>
+      <div class="notice">如果还没设置：Cloudflare → 工人和页面 → 你的项目 → 设置 → 变量 → 添加 <b>ADMIN_TOKEN</b>。</div>
+      <form id="loginForm">
+        <div class="field"><label>管理员密钥</label><input id="tokenInput" type="password" required placeholder="粘贴 ADMIN_TOKEN"></div>
+        <button class="btn orange" style="width:100%">进入后台</button>
+        <div id="loginError" class="error hidden"></div>
+      </form>
+    </section>
+
+    <section id="adminApp" class="hidden">
+      <div class="stats">
+        <div class="stat"><b id="statUsers">0</b><span>注册用户</span></div>
+        <div class="stat"><b id="statBuyers">0</b><span>买家</span></div>
+        <div class="stat"><b id="statPrinters">0</b><span>打印机主</span></div>
+        <div class="stat"><b id="statInquiries">0</b><span>询价单</span></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="tabs">
+          <button class="btn light active" data-tab="users">用户</button>
+          <button class="btn light" data-tab="printers">打印机</button>
+          <button class="btn light" data-tab="inquiries">询价</button>
+        </div>
+        <input id="searchInput" placeholder="搜索昵称、手机号、城市、订单内容">
+        <button class="btn light" id="refreshBtn">刷新数据</button>
+        <button class="btn light" id="exportBtn">导出 JSON</button>
+      </div>
+
+      <section class="panel"><div id="table" class="table-wrap"></div></section>
+      <div class="foot">
+        <div><span class="danger-zone">删除用户会同步删除：</span>登录会话、该买家提交的询价、该打印机主发布的打印机，以及这些打印机关联的询价。</div>
+        <div>建议正式上线后再增加“禁用用户”功能，日常先禁用、确认后再删除，会更稳。</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tokenKey='zaowu-admin-token';
+    let token=localStorage.getItem(tokenKey)||'', state={users:[],printers:[],inquiries:[]}, tab='users', keyword='';
+    const $=id=>document.getElementById(id);
+    const fmt=t=>t?new Date(Number(t)).toLocaleString('zh-CN',{hour12:false}):'-';
+    const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    function roleName(role){return role==='printer'?'打印机主':'买家'}
+    function roleTag(role){return `<span class="tag ${role==='printer'?'printer':'buyer'}">${roleName(role)}</span>`}
+    async function api(path,options={}){
+      const res=await fetch(path,{...options,headers:{'content-type':'application/json',authorization:'Bearer '+token,...(options.headers||{})}});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error||'请求失败');
+      return data;
+    }
+    function enter(){token=$('tokenInput').value.trim();localStorage.setItem(tokenKey,token);load()}
+    function logout(){localStorage.removeItem(tokenKey);token='';$('adminApp').classList.add('hidden');$('loginBox').classList.remove('hidden');$('topActions').innerHTML=''}
+    async function load(){
+      $('loginError').classList.add('hidden');
+      try{
+        state=await api('/api/admin/export');
+        $('loginBox').classList.add('hidden');$('adminApp').classList.remove('hidden');
+        $('topActions').innerHTML='<button class="btn light" onclick="logout()">退出后台</button>';
+        render();
+      }catch(e){
+        $('loginError').textContent=e.message+'。请检查 ADMIN_TOKEN 是否设置并重新部署。';
+        $('loginError').classList.remove('hidden');
+        $('adminApp').classList.add('hidden');$('loginBox').classList.remove('hidden');
+      }
+    }
+    function render(){
+      $('statUsers').textContent=state.users.length;
+      $('statBuyers').textContent=state.users.filter(u=>u.role!=='printer').length;
+      $('statPrinters').textContent=state.users.filter(u=>u.role==='printer').length;
+      $('statInquiries').textContent=state.inquiries.length;
+      document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+      if(tab==='users') renderUsers();
+      if(tab==='printers') renderPrinters();
+      if(tab==='inquiries') renderInquiries();
+    }
+    function match(row){const text=JSON.stringify(row).toLowerCase();return text.includes(keyword.toLowerCase())}
+    function renderUsers(){
+      const rows=state.users.filter(match);
+      $('table').innerHTML=rows.length?`<table><thead><tr><th>昵称</th><th>手机号</th><th>身份</th><th>注册时间</th><th>关联数据</th><th>操作</th></tr></thead><tbody>${rows.map(u=>{
+        const printerCount=state.printers.filter(p=>p.owner_id===u.id).length;
+        const inquiryCount=state.inquiries.filter(i=>i.buyer_id===u.id).length;
+        return `<tr><td><b>${esc(u.name)}</b><div class="muted">${esc(u.id)}</div></td><td>${esc(u.phone)}</td><td>${roleTag(u.role)}</td><td>${fmt(u.created_at)}</td><td>打印机 ${printerCount} · 询价 ${inquiryCount}</td><td><div class="row-actions"><button class="btn danger" onclick="deleteUser('${esc(u.id)}','${esc(u.name)}')">删除</button></div></td></tr>`
+      }).join('')}</tbody></table>`:`<div class="empty">没有匹配的用户</div>`;
+    }
+    function renderPrinters(){
+      const rows=state.printers.filter(match);
+      $('table').innerHTML=rows.length?`<table><thead><tr><th>商家/设备</th><th>城市</th><th>材料</th><th>联系方式</th><th>状态</th><th>创建时间</th></tr></thead><tbody>${rows.map(p=>`<tr><td><b>${esc(p.name)}</b><div class="muted">${esc(p.model)} · ${esc(p.id)}</div></td><td>${esc(p.city)}</td><td>${esc(p.materials)}</td><td>电话：${esc(p.phone||'-')}<br>微信：${esc(p.wechat||'-')}</td><td>${p.active?'<span class="tag printer">可咨询</span>':'<span class="tag">忙碌</span>'}</td><td>${fmt(p.created_at)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">没有匹配的打印机</div>`;
+    }
+    function renderInquiries(){
+      const rows=state.inquiries.filter(match);
+      $('table').innerHTML=rows.length?`<table><thead><tr><th>需求</th><th>联系人</th><th>材料/尺寸</th><th>状态</th><th>模型</th><th>创建时间</th></tr></thead><tbody>${rows.map(i=>`<tr><td><b>${esc(i.item)}</b><div class="muted">${esc(i.id)}</div></td><td>${esc(i.recipient)}<br>${esc(i.phone)}<br><span class="muted">${esc(i.address)}</span></td><td>${esc(i.material)} · ${esc(i.color)}<br>${esc(i.size)}</td><td><span class="tag">${esc(i.status)}</span></td><td>${i.model_link?`<a href="${esc(i.model_link)}" target="_blank">模型链接</a>`:esc(i.upload_name||'-')}</td><td>${fmt(i.created_at)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">没有匹配的询价</div>`;
+    }
+    async function deleteUser(id,name){
+      if(!confirm(`确认删除用户「${name}」？\\n\\n这个操作会删除该用户及其相关询价、打印机资料，不能恢复。`)) return;
+      await api('/api/admin/users',{method:'DELETE',body:JSON.stringify({id})});
+      await load();
+    }
+    function exportJson(){
+      const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='zaowu-admin-export.json';a.click();URL.revokeObjectURL(a.href);
+    }
+    $('loginForm').addEventListener('submit',e=>{e.preventDefault();enter()});
+    $('refreshBtn').addEventListener('click',load);
+    $('exportBtn').addEventListener('click',exportJson);
+    $('searchInput').addEventListener('input',e=>{keyword=e.target.value.trim();render()});
+    document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;render()}));
+    if(token){$('tokenInput').value=token;load()}
+  </script>
+</body>
+</html>

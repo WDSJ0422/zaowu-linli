@@ -55,4 +55,3 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_printers_owner_id ON printers(owner_id);
 CREATE INDEX IF NOT EXISTS idx_inquiries_buyer_id ON inquiries(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_inquiries_printer_id ON inquiries(printer_id);
-
