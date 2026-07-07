@@ -17,6 +17,7 @@ export async function onRequestDelete({ request, env }) {
   await env.DB.prepare("DELETE FROM inquiries WHERE printer_id IN (SELECT id FROM printers WHERE owner_id=?)")
     .bind(userId)
     .run();
+  await env.DB.prepare("DELETE FROM maker_models WHERE owner_id=?").bind(userId).run();
   await env.DB.prepare("DELETE FROM printers WHERE owner_id=?").bind(userId).run();
   await env.DB.prepare("DELETE FROM users WHERE id=?").bind(userId).run();
 
